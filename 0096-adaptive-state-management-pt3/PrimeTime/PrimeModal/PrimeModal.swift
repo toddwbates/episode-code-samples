@@ -30,15 +30,12 @@ public struct IsPrimeModalView: View {
     let isFavorite: Bool
   }
   
-  let store: Store<PrimeModalState, PrimeModalAction>
   @ObservedObject var viewStore: ViewStore<State, PrimeModalAction>
 
-  public init(store: Store<PrimeModalState, PrimeModalAction>) {
+  public init(store: ViewStore<PrimeModalState, PrimeModalAction>) {
     print("IsPrimeModalView.init")
-    self.store = store
-    self.viewStore = self.store
+    self.viewStore = store
       .scope(value: State.init(primeModalState:), action: { $0 })
-      .view
   }
 
   public var body: some View {

@@ -22,7 +22,7 @@ public func pullback<LocalValue, GlobalValue, LocalAction, GlobalAction, LocalEn
   return { globalValue, globalAction, globalEnvironment in
     guard let localAction = action.extract(from: globalAction) else { return [] }
     let localEffects = reducer(&globalValue[keyPath: value], localAction, environment(globalEnvironment))
-
+    
     return localEffects.map { localEffect in
       localEffect.map(action.embed)
         .eraseToEffect()
@@ -58,9 +58,9 @@ public final class ViewStore<Value, Action>: ObservableObject {
     self.send = send
   }
   
-//  public func send(_ action: Action) {
-//
-//  }
+  //  public func send(_ action: Action) {
+  //
+  //  }
 }
 
 extension Store where Value: Equatable {
@@ -82,7 +82,7 @@ extension Store {
       .removeDuplicates(by: predicate)
       .sink(receiveValue: { [weak viewStore] value in
         viewStore?.value = value
-//        self
+        //        self
       })
     
     return viewStore
@@ -93,9 +93,8 @@ public final class Store<Value, Action> /*: ObservableObject */ {
   private let reducer: Reducer<Value, Action, Any>
   private let environment: Any
   @Published private var value: Value
-  private var viewCancellable: Cancellable?
   private var effectCancellables: Set<AnyCancellable> = []
-
+  
   public init<Environment>(
     initialValue: Value,
     reducer: @escaping Reducer<Value, Action, Environment>,
@@ -107,7 +106,7 @@ public final class Store<Value, Action> /*: ObservableObject */ {
     self.value = initialValue
     self.environment = environment
   }
-
+  
   private func send(_ action: Action) {
     let effects = self.reducer(&self.value, action, self.environment)
     effects.forEach { effect in
@@ -118,7 +117,7 @@ public final class Store<Value, Action> /*: ObservableObject */ {
           didComplete = true
           guard let effectCancellable = effectCancellable else { return }
           self?.effectCancellables.remove(effectCancellable)
-      },
+        },
         receiveValue: { [weak self] in self?.send($0) }
       )
       if !didComplete, let effectCancellable = effectCancellable {
@@ -126,26 +125,36 @@ public final class Store<Value, Action> /*: ObservableObject */ {
       }
     }
   }
+}
 
+extension ViewStore {
+  
+  public func scope<LocalValue, LocalAction>(
+    value toLocalValue: @escaping (Value) -> LocalValue,
+    action toGlobalAction: @escaping (LocalAction) -> Action,
+    removeDuplicates predicate: @escaping (LocalValue, LocalValue) -> Bool
+  ) -> ViewStore<LocalValue, LocalAction> {
+    let localStore = ViewStore<LocalValue, LocalAction>(
+      initialValue: toLocalValue(self.value),
+      send: { self.send(toGlobalAction($0)) }
+    )
+    
+    localStore.cancellable = self.$value
+      .sink(receiveValue: { [weak localStore] value in
+        guard let localStore = localStore else { return }
+        let localValue = toLocalValue(value)
+        if !predicate(localStore.value, localValue) {
+          localStore.value = localValue
+        }
+      })
+    return localStore
+  }
+  
   public func scope<LocalValue, LocalAction>(
     value toLocalValue: @escaping (Value) -> LocalValue,
     action toGlobalAction: @escaping (LocalAction) -> Action
-  ) -> Store<LocalValue, LocalAction> {
-    let localStore = Store<LocalValue, LocalAction>(
-      initialValue: toLocalValue(self.value),
-      reducer: { localValue, localAction, _ in
-        self.send(toGlobalAction(localAction))
-        localValue = toLocalValue(self.value)
-        return []
-    },
-      environment: self.environment
-    )
-    localStore.viewCancellable = self.$value
-      .map(toLocalValue)
-//      .removeDuplicates()
-      .sink { [weak localStore] newValue in
-        localStore?.value = newValue
-      }
-    return localStore
+  )-> ViewStore<LocalValue, LocalAction> where LocalValue : Equatable {
+    scope(value: toLocalValue, action: toGlobalAction, removeDuplicates: ==)
   }
+  
 }

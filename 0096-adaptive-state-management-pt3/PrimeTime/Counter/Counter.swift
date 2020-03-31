@@ -15,13 +15,13 @@ public typealias CounterState = (
 public enum CounterAction: Equatable {
   case decrTapped
   case incrTapped
-//  case nthPrimeButtonTapped
+  //  case nthPrimeButtonTapped
   case requestNthPrime
   case nthPrimeResponse(n: Int, prime: Int?)
   case alertDismissButtonTapped
   case isPrimeButtonTapped
   case primeModalDismissed
-//  case doubleTap
+  //  case doubleTap
 }
 
 public typealias CounterEnvironment = (Int) -> Effect<Int?>
@@ -35,11 +35,11 @@ public func counterReducer(
   case .decrTapped:
     state.count -= 1
     return []
-
+    
   case .incrTapped:
     state.count += 1
     return []
-
+    
   case .requestNthPrime:
     state.isNthPrimeRequestInFlight = true
     let n = state.count
@@ -49,61 +49,84 @@ public func counterReducer(
         .receive(on: DispatchQueue.main)
         .eraseToEffect()
     ]
-
+    
   case let .nthPrimeResponse(n, prime):
     state.alertNthPrime = prime.map { PrimeAlert(n: n, prime: $0) }
     state.isNthPrimeRequestInFlight = false
     return []
-
+    
   case .alertDismissButtonTapped:
     state.alertNthPrime = nil
     return []
-
+    
   case .isPrimeButtonTapped:
     state.isPrimeModalShown = true
     return []
-
+    
   case .primeModalDismissed:
     state.isPrimeModalShown = false
     return []
     
-//  case .doubleTap:
-//        state.isNthPrimeRequestInFlight = true
-//    let n = state.count
-//    return [
-//      environment(state.count)
-//        .map { CounterAction.nthPrimeResponse(n: n, prime: $0) }
-//        .receive(on: DispatchQueue.main)
-//        .eraseToEffect()
-//    ]
+    //  case .doubleTap:
+    //        state.isNthPrimeRequestInFlight = true
+    //    let n = state.count
+    //    return [
+    //      environment(state.count)
+    //        .map { CounterAction.nthPrimeResponse(n: n, prime: $0) }
+    //        .receive(on: DispatchQueue.main)
+    //        .eraseToEffect()
+    //    ]
   }
 }
 
-public let counterViewReducer: Reducer<CounterFeatureState, CounterFeatureAction, CounterEnvironment> = combine(
-  pullback(
-    counterReducer,
-    value: \CounterFeatureState.counter,
-    action: /CounterFeatureAction.counter,
-    environment: { $0 }
-  ),
-  pullback(
-    primeModalReducer,
-    value: \.primeModal,
-    action: /CounterFeatureAction.primeModal,
-    environment: { _ in () }
-  )
-)
+public func pullback1<LocalValue, GlobalValue, LocalAction, GlobalAction, LocalEnvironment, GlobalEnvironment>(
+  _ reducer: @escaping Reducer<LocalValue, LocalAction, LocalEnvironment>,
+  value: WritableKeyPath<GlobalValue, LocalValue>,
+  action: CasePath<GlobalAction, LocalAction>,
+  environment: @escaping (GlobalEnvironment) -> LocalEnvironment
+) -> Reducer<GlobalValue, GlobalAction, GlobalEnvironment> {
+  return { globalValue, globalAction, globalEnvironment in
+    guard let localAction = action.extract(from: globalAction) else { return [] }
+    let localEffects = reducer(&globalValue[keyPath: value], localAction, environment(globalEnvironment))
+    
+    return localEffects.map { localEffect in
+      localEffect.map(action.embed)
+        .eraseToEffect()
+    }
+  }
+}
+
+func embed<LocalAction,GlobalAction>(_ path: CasePath<GlobalAction, LocalAction>
+) -> (Effect<LocalAction>)->Effect<GlobalAction> {
+  return {
+    $0.map( path.embed )
+      .eraseToEffect()
+  }
+}
+
+public let counterViewReducer: Reducer<CounterFeatureState, CounterFeatureAction, CounterEnvironment> =
+{ state, action, env in
+  
+  switch action {
+  case let .counter(localAction):
+    return counterReducer(state: &state.counter, action: localAction, environment: env )
+      .map( embed(/CounterFeatureAction.counter) )
+  case let .primeModal(localAction):
+    return primeModalReducer(state: &state.primeModal, action: localAction, environment:  () )
+      .map( embed(/CounterFeatureAction.primeModal) )
+  }
+}
 
 public struct CounterFeatureState: Equatable {
   public var alertNthPrime: PrimeAlert?
   public var count: Int
   public var favoritePrimes: [Int]
-//  public var isNthPrimeButtonDisabled: Bool
+  //  public var isNthPrimeButtonDisabled: Bool
   public var isNthPrimeRequestInFlight: Bool
   public var isPrimeModalShown: Bool
   
-//  public var isLoadingIndicatorHidden: Bool
-
+  //  public var isLoadingIndicatorHidden: Bool
+  
   public init(
     alertNthPrime: PrimeAlert? = nil,
     count: Int = 0,
@@ -117,12 +140,12 @@ public struct CounterFeatureState: Equatable {
     self.isNthPrimeRequestInFlight = isNthPrimeRequestInFlight
     self.isPrimeModalShown = isPrimeModalShown
   }
-
+  
   var counter: CounterState {
     get { (self.alertNthPrime, self.count, self.isNthPrimeRequestInFlight, self.isPrimeModalShown) }
     set { (self.alertNthPrime, self.count, self.isNthPrimeRequestInFlight, self.isPrimeModalShown) = newValue }
   }
-
+  
   var primeModal: PrimeModalState {
     get { (self.count, self.favoritePrimes) }
     set { (self.count, self.favoritePrimes) = newValue }
@@ -154,10 +177,10 @@ public struct CounterView: View {
     case doubleTap
   }
   
-  let store: Store<CounterFeatureState, CounterFeatureAction>
+  let store: ViewStore<CounterFeatureState, CounterFeatureAction>
   @ObservedObject var viewStore: ViewStore<State, Action>
-
-  public init(store: Store<CounterFeatureState, CounterFeatureAction>) {
+  
+  public init(store: ViewStore<CounterFeatureState, CounterFeatureAction>) {
     print("CounterView.init")
     self.store = store
     self.viewStore = self.store
@@ -165,9 +188,8 @@ public struct CounterView: View {
         value: State.init,
         action: CounterFeatureAction.init
     )
-      .view
   }
-
+  
   public var body: some View {
     print("CounterView.body")
     return VStack {
@@ -193,7 +215,8 @@ public struct CounterView: View {
       IsPrimeModalView(
         store: self.store.scope(
           value: { ($0.count, $0.favoritePrimes) },
-          action: { .primeModal($0) }
+          action: { .primeModal($0) },
+          removeDuplicates: ==
         )
       )
     }

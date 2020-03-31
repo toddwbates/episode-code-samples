@@ -8,23 +8,23 @@ import XCTest
 
 class CounterTests: XCTestCase {
   func testSnapshots() {
-    let a = Store(initialValue: CounterFeatureState(), reducer: counterViewReducer, environment: { _ in .sync { 17 } })
-    let store = a.view
+    let store = Store(initialValue: CounterFeatureState(), reducer: counterViewReducer, environment: { _ in .sync { 17 } })
+    let viewStore = store.view
 
-    let view = CounterView(store: a)
+    let view = CounterView(store: viewStore)
 
     let vc = UIHostingController(rootView: view)
     vc.view.frame = UIScreen.main.bounds
 
     assertSnapshot(matching: vc, as: .windowedImage)
 
-    store.send(.counter(.incrTapped))
+    viewStore.send(.counter(.incrTapped))
     assertSnapshot(matching: vc, as: .windowedImage)
 
-    store.send(.counter(.incrTapped))
+    viewStore.send(.counter(.incrTapped))
     assertSnapshot(matching: vc, as: .windowedImage)
 
-    store.send(.counter(.requestNthPrime))
+    viewStore.send(.counter(.requestNthPrime))
     assertSnapshot(matching: vc, as: .windowedImage)
 
     var expectation = self.expectation(description: "wait")
@@ -34,7 +34,7 @@ class CounterTests: XCTestCase {
     self.wait(for: [expectation], timeout: 0.5)
     assertSnapshot(matching: vc, as: .windowedImage)
 
-    store.send(.counter(.alertDismissButtonTapped))
+    viewStore.send(.counter(.alertDismissButtonTapped))
     expectation = self.expectation(description: "wait")
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
       expectation.fulfill()
@@ -42,13 +42,13 @@ class CounterTests: XCTestCase {
     self.wait(for: [expectation], timeout: 0.5)
     assertSnapshot(matching: vc, as: .windowedImage)
 
-    store.send(.counter(.isPrimeButtonTapped))
+    viewStore.send(.counter(.isPrimeButtonTapped))
     assertSnapshot(matching: vc, as: .windowedImage)
 
-    store.send(.primeModal(.saveFavoritePrimeTapped))
+    viewStore.send(.primeModal(.saveFavoritePrimeTapped))
     assertSnapshot(matching: vc, as: .windowedImage)
 
-    store.send(.counter(.primeModalDismissed))
+    viewStore.send(.counter(.primeModalDismissed))
     assertSnapshot(matching: vc, as: .windowedImage)
   }
 

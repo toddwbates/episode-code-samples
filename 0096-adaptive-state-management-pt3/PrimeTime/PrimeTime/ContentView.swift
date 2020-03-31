@@ -137,11 +137,12 @@ let isInExperiment = false //Bool.random()
 
 struct ContentView: View {
   let store: Store<AppState, AppAction>
-//  @ObservedObject var viewStore: ViewStore<???>
+  let viewStore: ViewStore<AppState, AppAction>
   
   init(store: Store<AppState, AppAction>) {
     print("ContentView.init")
     self.store = store
+    viewStore = self.store.view
   }
 
   var body: some View {
@@ -152,7 +153,7 @@ struct ContentView: View {
           NavigationLink(
             "Counter demo",
             destination: CounterView(
-              store: self.store.scope(
+              store: self.viewStore.scope(
                 value: { $0.counterView },
                 action: { .counterView($0) }
               )
@@ -162,7 +163,7 @@ struct ContentView: View {
           NavigationLink(
             "Offline counter demo",
             destination: CounterView(
-              store: self.store.scope(
+              store: self.viewStore.scope(
                 value: { $0.counterView },
                 action: { .offlineCounterView($0) }
               )
@@ -172,9 +173,10 @@ struct ContentView: View {
         NavigationLink(
           "Favorite primes",
           destination: FavoritePrimesView(
-            store: self.store.scope(
+            store: self.viewStore.scope(
               value: { $0.favoritePrimesState },
-              action: { .favoritePrimes($0) }
+              action: { .favoritePrimes($0) },
+              removeDuplicates: ==
             )
           )
         )

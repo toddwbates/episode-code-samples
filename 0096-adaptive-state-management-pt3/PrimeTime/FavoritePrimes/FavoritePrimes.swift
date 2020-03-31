@@ -75,13 +75,12 @@ public func favoritePrimesReducer(
 }
 
 public struct FavoritePrimesView: View {
-  let store: Store<FavoritePrimesState, FavoritePrimesAction>
-  @ObservedObject var viewStore: ViewStore<FavoritePrimesState, FavoritePrimesAction>
 
-  public init(store: Store<FavoritePrimesState, FavoritePrimesAction>) {
+@ObservedObject var viewStore: ViewStore<FavoritePrimesState, FavoritePrimesAction>
+
+  public init(store: ViewStore<FavoritePrimesState, FavoritePrimesAction>) {
     print("FavoritePrimesView.init")
-    self.store = store
-    self.viewStore = self.store.view(removeDuplicates: ==)
+    self.viewStore = store
   }
 
   public var body: some View {
