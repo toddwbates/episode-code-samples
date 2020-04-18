@@ -8,23 +8,25 @@ import XCTest
 
 class CounterTests: XCTestCase {
   func testSnapshots() {
-    let store = Store(initialValue: CounterFeatureState(), reducer: counterViewReducer, environment: { _ in .sync { 17 } })
-    let viewStore = store.view
-
-    let view = CounterView(store: viewStore)
+    let store = Store(
+      initialValue: CounterFeatureState(),
+      reducer: counterFeatureReducer,
+      environment: { _ in .sync { 17 } }
+    )
+    let view = CounterView(store: store)
 
     let vc = UIHostingController(rootView: view)
     vc.view.frame = UIScreen.main.bounds
 
     assertSnapshot(matching: vc, as: .windowedImage)
 
-    viewStore.send(.counter(.incrTapped))
+    view.viewStore.send(.incrTapped)
     assertSnapshot(matching: vc, as: .windowedImage)
 
-    viewStore.send(.counter(.incrTapped))
+    view.viewStore.send(.incrTapped)
     assertSnapshot(matching: vc, as: .windowedImage)
 
-    viewStore.send(.counter(.requestNthPrime))
+    view.viewStore.send(.nthPrimeButtonTapped)
     assertSnapshot(matching: vc, as: .windowedImage)
 
     var expectation = self.expectation(description: "wait")
@@ -34,7 +36,7 @@ class CounterTests: XCTestCase {
     self.wait(for: [expectation], timeout: 0.5)
     assertSnapshot(matching: vc, as: .windowedImage)
 
-    viewStore.send(.counter(.alertDismissButtonTapped))
+    view.viewStore.send(.alertDismissButtonTapped)
     expectation = self.expectation(description: "wait")
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
       expectation.fulfill()
@@ -42,20 +44,20 @@ class CounterTests: XCTestCase {
     self.wait(for: [expectation], timeout: 0.5)
     assertSnapshot(matching: vc, as: .windowedImage)
 
-    viewStore.send(.counter(.isPrimeButtonTapped))
+    view.viewStore.send(.isPrimeButtonTapped)
     assertSnapshot(matching: vc, as: .windowedImage)
 
-    viewStore.send(.primeModal(.saveFavoritePrimeTapped))
+    store.view.send(.primeModal(.saveFavoritePrimeTapped))
     assertSnapshot(matching: vc, as: .windowedImage)
 
-    viewStore.send(.counter(.primeModalDismissed))
+    view.viewStore.send(.primeModalDismissed)
     assertSnapshot(matching: vc, as: .windowedImage)
   }
 
   func testIncrDecrButtonTapped() {
     assert(
       initialValue: CounterFeatureState(count: 2),
-      reducer: counterViewReducer,
+      reducer: counterFeatureReducer,
       environment: { _ in .sync { 17 } },
       steps:
       Step(.send, .counter(.incrTapped)) { $0.count = 3 },
@@ -71,10 +73,10 @@ class CounterTests: XCTestCase {
         count: 7,
         isNthPrimeRequestInFlight: false
       ),
-      reducer: counterViewReducer,
+      reducer: counterFeatureReducer,
       environment: { _ in .sync { 17 } },
       steps:
-      Step(.send, .counter(.requestNthPrime)) {
+      Step(.send, .counter(CounterAction.requestNthPrime)) {
         $0.isNthPrimeRequestInFlight = true
       },
       Step(.receive, .counter(.nthPrimeResponse(n: 7, prime: 17))) {
@@ -94,7 +96,7 @@ class CounterTests: XCTestCase {
         count: 7,
         isNthPrimeRequestInFlight: false
       ),
-      reducer: counterViewReducer,
+      reducer: counterFeatureReducer,
       environment: { _ in .sync { nil } },
       steps:
       Step(.send, .counter(.requestNthPrime)) {
@@ -112,7 +114,7 @@ class CounterTests: XCTestCase {
         count: 1,
         favoritePrimes: [3, 5]
       ),
-      reducer: counterViewReducer,
+      reducer: counterFeatureReducer,
       environment: { _ in .sync { 17 } },
       steps:
       Step(.send, .counter(.incrTapped)) {
@@ -126,5 +128,4 @@ class CounterTests: XCTestCase {
       }
     )
   }
-
 }
