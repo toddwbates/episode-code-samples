@@ -79,23 +79,6 @@ public func counterReducer(
   }
 }
 
-public func pullback1<LocalValue, GlobalValue, LocalAction, GlobalAction, LocalEnvironment, GlobalEnvironment>(
-  _ reducer: @escaping Reducer<LocalValue, LocalAction, LocalEnvironment>,
-  value: WritableKeyPath<GlobalValue, LocalValue>,
-  action: CasePath<GlobalAction, LocalAction>,
-  environment: @escaping (GlobalEnvironment) -> LocalEnvironment
-) -> Reducer<GlobalValue, GlobalAction, GlobalEnvironment> {
-  return { globalValue, globalAction, globalEnvironment in
-    guard let localAction = action.extract(from: globalAction) else { return [] }
-    let localEffects = reducer(&globalValue[keyPath: value], localAction, environment(globalEnvironment))
-    
-    return localEffects.map { localEffect in
-      localEffect.map(action.embed)
-        .eraseToEffect()
-    }
-  }
-}
-
 func embed<LocalAction,GlobalAction>(_ path: CasePath<GlobalAction, LocalAction>
 ) -> (Effect<LocalAction>)->Effect<GlobalAction> {
   return {
@@ -197,7 +180,7 @@ public struct CounterView: View {
         Button("-") { self.viewStore.send(.decrTapped) }
           .disabled(self.viewStore.value.isDecrementButtonDisabled)
         Text("\(self.viewStore.value.count)")
-        Button("+") { self.viewStore.send(.incrTapped) }
+        Button("+", action: self.viewStore.curry(.incrTapped)) 
           .disabled(self.viewStore.value.isIncrementButtonDisabled)
       }
       Button("Is this prime?") { self.viewStore.send(.isPrimeButtonTapped) }

@@ -54,11 +54,8 @@ public struct CounterView: View {
       }
       .disabled(self.viewStore.value.isNthPrimeButtonDisabled)
     }
-    .popover(
-      isPresented: Binding(
-        get: { self.viewStore.value.isPrimePopoverShown },
-        set: { _ in self.viewStore.send(.primePopoverDismissed) }
-      )
+    .popover( isPresented:
+      self.viewStore.bind(/.isPrimePopoverShown,\.primePopoverDismissed)
     ) {
       IsPrimeModalView(
         store: self.store.scope(

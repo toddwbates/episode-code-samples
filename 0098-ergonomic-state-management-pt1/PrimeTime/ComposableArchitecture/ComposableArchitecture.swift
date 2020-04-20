@@ -218,3 +218,47 @@ extension Store {
     return viewStore
   }
 }
+
+extension ViewStore {
+  
+  public func scope<LocalValue, LocalAction>(
+    value toLocalValue: @escaping (Value) -> LocalValue,
+    action toGlobalAction: @escaping (LocalAction) -> Action,
+    removeDuplicates predicate: @escaping (LocalValue, LocalValue) -> Bool
+  ) -> ViewStore<LocalValue, LocalAction> {
+    let localStore = ViewStore<LocalValue, LocalAction>(
+      initialValue: toLocalValue(self.value),
+      send: { self.send(toGlobalAction($0)) }
+    )
+    
+    localStore.cancellable = self.$value
+      .sink(receiveValue: { [weak localStore] value in
+        guard let localStore = localStore else { return }
+        let localValue = toLocalValue(value)
+        if !predicate(localStore.value, localValue) {
+          localStore.value = localValue
+        }
+      })
+    return localStore
+  }
+  
+  public func scope<LocalValue, LocalAction>(
+    value toLocalValue: @escaping (Value) -> LocalValue,
+    action toGlobalAction: @escaping (LocalAction) -> Action
+  )-> ViewStore<LocalValue, LocalAction> where LocalValue : Equatable {
+    scope(value: toLocalValue, action: toGlobalAction, removeDuplicates: ==)
+  }
+  
+}
+
+extension ViewStore {
+  func bind<T>(_ get: KeyPath<Value,T>, _ set: CasePath<Action,T>)->Binding<T> {
+    return Binding(get: { self.value[keyPath: get] },
+                   set: { self.send( set.embed($0) ) })
+  }
+  
+  func curry(_ action:Action)->()->Void {
+    return  { self.send( action ) }
+  }
+
+}

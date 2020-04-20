@@ -158,3 +158,15 @@ extension ViewStore {
   }
   
 }
+
+extension ViewStore {
+  public func bind<T>(_ get: KeyPath<Value,T>, _ set: CasePath<Action,T>)->Binding<T> {
+    return Binding(get: { self.value[keyPath: get] },
+                   set: { self.send( set.embed($0) ) })
+  }
+  
+  public func curry(_ action:Action)->()->Void {
+    return  { self.send( action ) }
+  }
+
+}
